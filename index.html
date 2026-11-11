@@ -1,0 +1,784 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0a0d12">
+<title>Blackjack</title>
+<style>
+  :root {
+    --gold: #f2c14e; --gold-soft: rgba(242,193,78,.35); --ink: #f6f2e7; --muted: rgba(246,242,231,.62);
+    --red: #d1202f; --panel: #131922; --line: rgba(255,255,255,.1);
+    --good: #6ee7a0; --bad: #ff9c94;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    color: var(--ink);
+    background: radial-gradient(ellipse at 50% 0%, #222d3d 0%, #0a0d12 70%) fixed #0a0d12;
+    overscroll-behavior: none; user-select: none;
+  }
+  button { font: inherit; color: inherit; cursor: pointer; border: 0; border-radius: 12px; }
+  button:disabled { opacity: .35; cursor: default; }
+  .hidden { display: none !important; }
+
+  /* ---------- Startseite ---------- */
+  #home { min-height: 100%; display: flex; align-items: center; justify-content: center; padding: 24px 16px; }
+  .box { width: 100%; max-width: 380px; background: linear-gradient(#18202b, #10151c); border: 1px solid var(--gold-soft);
+         border-radius: 22px; padding: 28px 22px; text-align: center; box-shadow: 0 20px 50px rgba(0,0,0,.55); }
+  .logo { font-size: 40px; letter-spacing: 6px; }
+  .logo span { color: var(--red); }
+  h1 { margin: 6px 0 4px; font-size: 32px; letter-spacing: 3px; font-family: Georgia, "Times New Roman", serif; color: var(--gold); }
+  .sub { color: var(--muted); margin: 0 0 22px; font-size: 14px; }
+  label { display: block; text-align: left; font-size: 13px; color: var(--muted); margin: 14px 0 6px; }
+  input { width: 100%; font: inherit; font-size: 18px; padding: 12px 14px; border-radius: 12px;
+          border: 1px solid var(--line); background: rgba(255,255,255,.06); color: var(--ink); outline: none; }
+  input:focus { border-color: var(--gold); }
+  #codeInput { text-transform: uppercase; letter-spacing: 6px; text-align: center; }
+  .primary { background: linear-gradient(#f7d06b, #e0a92d); color: #2a1e00; font-weight: 800; padding: 14px; width: 100%; font-size: 17px; margin-top: 16px;
+             box-shadow: 0 3px 0 #9a7214; }
+  .ghost { background: rgba(255,255,255,.09); padding: 14px; width: 100%; font-size: 16px; margin-top: 10px; }
+  .or { color: var(--muted); font-size: 13px; margin: 18px 0 0; }
+  .err { color: var(--bad); min-height: 20px; font-size: 14px; margin-top: 12px; }
+
+  /* ---------- Tisch ---------- */
+  #table { overflow-x: clip; min-height: 100dvh; display: flex; flex-direction: column; max-width: 1000px; margin: 0 auto;
+           padding-top: env(safe-area-inset-top); }
+  .top { display: flex; align-items: center; gap: 8px; padding: 8px 10px; }
+  .top .code { font-weight: 800; letter-spacing: 3px; color: var(--gold); background: var(--panel); border: 1px solid var(--line); padding: 7px 12px; border-radius: 10px; }
+  .top .grow { flex: 1; }
+  .top button { background: var(--panel); border: 1px solid var(--line); padding: 7px 12px; font-size: 14px; }
+
+  .felt { flex: none; position: relative; margin: 2px 8px 0; padding-bottom: 20px; display: flex; flex-direction: column;
+          border-radius: 26px 26px 50% 50% / 26px 26px 22% 22%;
+          background: radial-gradient(ellipse at 50% 22%, #239565 0%, #146a47 46%, #0a4129 100%);
+          border: 9px solid #4d2e15;
+          box-shadow: 0 0 0 2px #24140a, 0 16px 34px rgba(0,0,0,.65), inset 0 0 46px rgba(0,0,0,.5); }
+  .felt::before { content: ''; position: absolute; inset: 7px; border: 1.5px solid var(--gold-soft); border-radius: inherit; pointer-events: none; }
+  .arcText { display: none; position: absolute; pointer-events: none; opacity: .4; }
+  .arcText text { fill: var(--gold); font: 700 15px Georgia, serif; letter-spacing: 3px; }
+
+  .dealer { text-align: center; padding-top: 12px; position: relative; }
+  .tag { font-size: 11px; text-transform: uppercase; letter-spacing: 3px; color: var(--muted); margin-bottom: 4px; }
+  .dealer .hand { min-height: 96px; }
+  .status { align-self: center; margin-top: 8px; min-height: 28px; max-width: 38%; text-align: center; font-size: 14px; color: var(--gold); font-weight: 700;
+            padding: 5px 14px; border-radius: 999px; background: rgba(0,0,0,.42); position: relative; z-index: 1; }
+  .status:empty { visibility: hidden; }
+
+  /* Karten */
+  .hand { display: inline-flex; align-items: flex-start; justify-content: center; vertical-align: middle; --cw: 40px; }
+  .card { width: var(--cw); height: calc(var(--cw) * 1.42); font-size: var(--cw); flex: none; position: relative;
+          border-radius: .13em; background: linear-gradient(150deg, #fffef9 0%, #f4eedc 100%);
+          border: 1px solid #b3a888; color: #17191d; box-shadow: -2px 3px 6px rgba(0,0,0,.5), inset 0 0 0 .035em rgba(255,255,255,.9);
+          font-family: Georgia, "Times New Roman", serif; font-weight: 700; line-height: 1; overflow: hidden; }
+  .card.red { color: #c8102e; }
+  .card b, .card u { position: absolute; display: flex; flex-direction: column; align-items: center; font-size: .42em; line-height: .92;
+                     letter-spacing: -.06em; text-decoration: none; min-width: .7em; }
+  .card b { top: .14em; left: .14em; }
+  .card u { bottom: .14em; right: .14em; transform: rotate(180deg); display: none; }
+  .hand.lg .card u { display: flex; }
+  .card b i, .card u i { font-size: .82em; font-style: normal; margin-top: .04em; }
+  .card em { position: absolute; left: 60%; top: 57%; transform: translate(-50%, -50%); font-size: .62em; font-style: normal; }
+  .hand.lg .card em { left: 50%; top: 50%; }
+  .card.ace em { font-size: .9em; }
+  .card.face em { font-size: .62em; padding: .12em .16em .06em; border: .04em solid currentColor; border-radius: .14em;
+                  background: linear-gradient(160deg, rgba(242,193,78,.35), rgba(242,193,78,.1)); }
+  .card.back { border: .06em solid #f8f1de;
+               background: radial-gradient(circle, #d9b45a 0 .1em, #6b1220 .11em .16em, transparent .17em),
+                           repeating-linear-gradient(45deg, rgba(255,255,255,.1) 0 1.5px, transparent 1.5px 7px),
+                           repeating-linear-gradient(-45deg, rgba(255,255,255,.1) 0 1.5px, transparent 1.5px 7px),
+                           linear-gradient(160deg, #a3223a, #5c0e1b);
+               box-shadow: -2px 3px 6px rgba(0,0,0,.5), inset 0 0 0 .03em #d9b45a; }
+  .card.new { animation: deal .38s cubic-bezier(.2,.8,.3,1.1) both; }
+  @keyframes deal { from { transform: translateY(-70px) rotate(-14deg) scale(.7); opacity: 0; } to { transform: none; opacity: 1; } }
+  .sum { display: inline-block; min-width: 36px; padding: 3px 10px; border-radius: 999px; text-align: center;
+         background: rgba(0,0,0,.68); border: 1.5px solid rgba(255,255,255,.3); font-size: 17px; font-weight: 800; }
+  .sum.bust { background: #7a1620; border-color: #ff9c94; }
+  .sum.top { background: var(--gold); color: #2a1e00; border-color: #fff3; }
+  .dealer .sum { margin-left: 8px; vertical-align: middle; font-size: 21px; padding: 4px 12px; }
+
+  /* Sitze im Halbkreis */
+  /* Handy: Aussenplaetze oben links/rechts, Innenplaetze unten -> Halbkreis um den Geber */
+  .seats { display: grid; grid-template-columns: repeat(20, 1fr); padding: 0 6px; margin-top: 4px; position: relative; }
+  .seat { min-width: 0; display: flex; flex-direction: column; align-items: center; transform-origin: 50% 100%; position: relative; }
+  .seat.s0 { grid-column: 1 / 7; grid-row: 1; transform: rotate(8deg); }
+  .seat.s3 { grid-column: 15 / 21; grid-row: 1; transform: rotate(-8deg); }
+  .seat.s1 { grid-column: 5 / 11; grid-row: 2; margin-top: 2px; transform: rotate(3deg); }
+  .seat.s2 { grid-column: 11 / 17; grid-row: 2; margin-top: 2px; transform: rotate(-3deg); }
+  @media (min-width: 760px) {
+    .felt { border-radius: 30px 30px 50% 50% / 30px 30px 42% 42%; border-width: 12px; padding-bottom: 30px; }
+    .status { max-width: none; }
+    .seats { display: flex; align-items: flex-end; padding: 0 30px; margin-top: 96px; }
+    .seat { flex: 1 1 0; }
+    .seat.s0 { transform: translateY(-112px) rotate(15deg); }
+    .seat.s1 { transform: translateY(-14px) rotate(5deg); margin-top: 0; }
+    .seat.s2 { transform: translateY(-14px) rotate(-5deg); margin-top: 0; }
+    .seat.s3 { transform: translateY(-112px) rotate(-15deg); }
+    .arcText { display: block; top: 172px; left: 22%; width: 56%; }
+  }
+  .hands { display: flex; flex-direction: column; align-items: center; gap: 4px; justify-content: flex-end; min-height: 100px; }
+  .hrow { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 3px 2px; border-radius: 10px; }
+  .hrow.cur { background: rgba(242,193,78,.22); box-shadow: 0 0 0 1.5px var(--gold); }
+  .hrow.dim { opacity: .85; }
+  .res { font-size: 11px; font-weight: 800; padding: 2px 7px; border-radius: 999px; background: rgba(0,0,0,.6); white-space: nowrap; }
+  .res.win, .res.blackjack { color: var(--good); } .res.lose, .res.bust { color: var(--bad); } .res.push { color: var(--ink); }
+  .betline { min-height: 28px; margin: 4px 0 2px; font-size: 17px; font-weight: 800; display: flex; align-items: center; gap: 5px; color: #fff;
+             white-space: nowrap; text-shadow: 0 1px 3px rgba(0,0,0,.7); }
+  .betline .mini { width: 21px; height: 21px; border-radius: 50%; background: var(--red); border: 3px dashed #fff; flex: none; box-shadow: 0 2px 3px rgba(0,0,0,.5); }
+  .betline.wait { color: var(--muted); font-weight: 500; font-size: 13px; }
+
+  /* Deko: liegt hinter bzw. auf dem Tisch */
+  .prop { position: absolute; pointer-events: none; filter: drop-shadow(0 5px 6px rgba(0,0,0,.65)); }
+  .prop.gun { z-index: -1; left: -4px; bottom: -84px; width: 150px; transform: rotate(-20deg); }
+  .prop.cash { z-index: -1; right: -6px; bottom: -66px; width: 140px; transform: rotate(14deg); }
+  .prop.glass { right: 12px; top: 12px; width: 40px; }
+  @media (min-width: 760px) {
+    .prop.gun { left: 0; bottom: -96px; width: 230px; transform: rotate(-24deg); }
+    .prop.cash { right: 0; bottom: -80px; width: 210px; }
+    .prop.glass { right: 34px; top: 22px; width: 62px; }
+  }
+  .felt.compact .hands { min-height: 26px; }
+  .felt.compact .dealer .hand { min-height: 44px; }
+  .betrow input { background: #161d27; }
+  .betrow { display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 10px; }
+  .betrow input { width: 120px; text-align: center; font-size: 24px; font-weight: 800; color: var(--gold); padding: 8px 6px; -moz-appearance: textfield; }
+  .betrow input::-webkit-outer-spin-button, .betrow input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+  .step { width: 48px; height: 48px; border-radius: 50%; font-size: 26px; font-weight: 800; background: #263040; box-shadow: 0 3px 0 #141a23; touch-action: manipulation; }
+  .betrow span { color: var(--muted); font-size: 13px; }
+
+  .plate { width: 94%; max-width: 132px; margin-top: 18px; padding: 0 4px 5px; text-align: center; position: relative;
+           background: linear-gradient(#1b232f, #0f141b); border: 1.5px solid var(--line); border-radius: 12px; }
+  .avatar { width: 34px; height: 34px; margin: -18px auto 2px; border-radius: 50%; background: var(--c); display: grid; place-items: center;
+            font-weight: 800; font-size: 15px; box-shadow: 0 0 0 2.5px #0f141b, 0 0 0 4px rgba(255,255,255,.22); text-shadow: 0 1px 2px rgba(0,0,0,.5); }
+  .name { font-weight: 700; font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .chips { font-size: 11.5px; color: var(--gold); font-weight: 700; }
+  .seat.me .plate { border-color: var(--gold-soft); }
+  .seat.me .name { color: var(--gold); }
+  .seat.off .plate { opacity: .5; }
+  .seat.active .plate { border-color: var(--gold); animation: glow 1.2s ease-in-out infinite alternate; }
+  .seat.active .avatar { width: 42px; height: 42px; margin-top: -24px; box-shadow: none;
+            background: radial-gradient(closest-side, var(--c) 76%, transparent 79%),
+                        conic-gradient(var(--gold) calc(var(--p, 100) * 1%), rgba(255,255,255,.2) 0); }
+  @keyframes glow { from { box-shadow: 0 0 6px rgba(242,193,78,.35); } to { box-shadow: 0 0 20px rgba(242,193,78,.9); } }
+  .seat.empty .plate { background: none; border-style: dashed; color: var(--muted); }
+  .seat.empty .avatar { background: none; box-shadow: 0 0 0 1.5px var(--line); color: var(--muted); }
+  .betline.net { font-weight: 900; font-size: 15px; padding: 1px 9px; border-radius: 999px; background: rgba(0,0,0,.7); animation: rise .5s ease-out both; }
+  .net.pos { color: var(--good); } .net.neg { color: var(--bad); }
+  @keyframes rise { from { transform: translateY(12px); opacity: 0; } }
+
+  /* ---------- Steuerung ---------- */
+  .controls { margin-top: auto; padding: 14px 10px calc(12px + env(safe-area-inset-bottom)); min-height: 92px; }
+  .plate { max-width: 120px; }
+  .name { font-size: 13.5px; } .chips { font-size: 12.5px; }
+  .mine { display: flex; justify-content: center; align-items: center; gap: 14px; margin-bottom: 10px; }
+  .mine .mh { display: flex; align-items: center; gap: 8px; padding: 4px 6px; border-radius: 12px; }
+  .mine .mh.cur { background: rgba(242,193,78,.16); box-shadow: 0 0 0 1.5px var(--gold); }
+  .mine .sum { font-size: 17px; padding: 4px 10px; }
+  .row { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+  .act { flex: 1 1 0; min-width: 72px; max-width: 180px; padding: 15px 6px; font-size: 16px; font-weight: 800;
+         background: #263040; box-shadow: 0 3px 0 #141a23; }
+  .act:active:not(:disabled) { transform: translateY(2px); box-shadow: none; }
+  .act.go { background: linear-gradient(#f7d06b, #e0a92d); color: #2a1e00; box-shadow: 0 3px 0 #9a7214; }
+  .act.stop { background: linear-gradient(#e2434f, #b81e2c); box-shadow: 0 3px 0 #7a1620; }
+  .chip { width: 54px; height: 54px; border-radius: 50%; font-weight: 800; font-size: 14px; border: 4px dashed rgba(255,255,255,.8); color: #fff;
+          box-shadow: 0 3px 0 rgba(0,0,0,.5), inset 0 0 0 3px rgba(0,0,0,.18); }
+  .chip:active:not(:disabled) { transform: translateY(2px); }
+  .c10 { background: #2f6fd1; } .c25 { background: #2c9a57; } .c50 { background: #d1782f; } .c100 { background: #26262b; } .c500 { background: #7b3fc4; }
+  .pend { text-align: center; font-size: 15px; margin-bottom: 8px; }
+  .pend b { color: var(--gold); font-size: 19px; }
+  .info { text-align: center; color: var(--muted); font-size: 15px; padding: 10px; }
+  .bar { height: 5px; background: rgba(255,255,255,.12); border-radius: 3px; margin: 0 auto 10px; max-width: 380px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--gold); width: 100%; transition: width .2s linear; }
+
+  /* ---------- Emotes ---------- */
+  .emoBtn { position: absolute; left: 10px; top: 10px; width: 46px; height: 46px; border-radius: 50%; font-size: 24px; z-index: 3;
+            background: #131922; border: 2px solid var(--gold-soft); box-shadow: 0 3px 8px rgba(0,0,0,.5); padding: 0; }
+  .tray { position: absolute; left: 8px; top: 62px; z-index: 6; width: min(300px, calc(100% - 16px)); padding: 10px;
+          background: #131922; border: 1.5px solid var(--gold-soft); border-radius: 16px; box-shadow: 0 12px 30px rgba(0,0,0,.6);
+          animation: trayIn .16s ease-out; }
+  @keyframes trayIn { from { transform: scale(.85); opacity: 0; } }
+  .tray { transform-origin: 20px 0; }
+  .tray .grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; }
+  .tray .grid button { font-size: 26px; padding: 6px 0; background: rgba(255,255,255,.06); border-radius: 10px; }
+  .tray .words { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; margin-top: 8px; }
+  .tray .words button { font-size: 13px; font-weight: 700; padding: 9px 4px; background: rgba(255,255,255,.08); border-radius: 10px; }
+  .tray button:active { background: var(--gold-soft); }
+  .bubble { position: fixed; z-index: 15; pointer-events: none; transform: translate(-50%, -100%);
+            animation: bubble 2.8s ease both; }
+  .bubble > div { background: #fff; color: #14161a; border-radius: 18px; padding: 6px 12px; font-size: 44px; line-height: 1.15;
+                  box-shadow: 0 6px 18px rgba(0,0,0,.55); border: 2px solid var(--gold); position: relative; white-space: nowrap; }
+  .bubble > div::after { content: ''; position: absolute; left: 50%; bottom: -9px; width: 14px; height: 14px; background: #fff;
+                         border-right: 2px solid var(--gold); border-bottom: 2px solid var(--gold); transform: translateX(-50%) rotate(45deg); }
+  .bubble.txt > div { font-size: 16px; font-weight: 800; padding: 9px 14px; }
+  .bubble span { display: inline-block; }
+  @keyframes bubble { 0% { transform: translate(-50%, -70%) scale(0); opacity: 0; } 9% { transform: translate(-50%, -100%) scale(1.2); opacity: 1; }
+                      15% { transform: translate(-50%, -100%) scale(1); } 85% { transform: translate(-50%, -100%) scale(1); opacity: 1; }
+                      100% { transform: translate(-50%, -125%) scale(.9); opacity: 0; } }
+  .a-pop { animation: aPop .5s ease-in-out 3; }
+  .a-wobble { animation: aWobble .45s ease-in-out 5; }
+  .a-shake { animation: aShake .12s linear 18; }
+  .a-sway { animation: aSway 1.1s ease-in-out 2; }
+  .a-pulse { animation: aPulse .4s ease-in-out 6; }
+  @keyframes aPop { 50% { transform: scale(1.3) translateY(-4px); } }
+  @keyframes aWobble { 25% { transform: rotate(-14deg); } 75% { transform: rotate(14deg); } }
+  @keyframes aShake { 25% { transform: translateX(-3px); } 75% { transform: translateX(3px); } }
+  @keyframes aSway { 50% { transform: translateY(5px) rotate(-6deg); } }
+  @keyframes aPulse { 50% { transform: scale(1.25); } }
+
+  /* ---------- Overlay (Lobby / QR) ---------- */
+  .overlay { position: fixed; inset: 0; background: rgba(0,0,0,.78); display: flex; align-items: center;
+             justify-content: center; padding: 16px; z-index: 10; overflow: auto; }
+  .overlay .box { max-width: 400px; }
+  .qr { width: 220px; max-width: 70vw; aspect-ratio: 1; background: #fff; border-radius: 14px; padding: 8px; }
+  .bigcode { font-size: 34px; font-weight: 800; letter-spacing: 8px; margin: 6px 0 8px; color: var(--gold); }
+  .url { font-size: 13px; color: var(--muted); word-break: break-all; user-select: text; }
+  .plist { list-style: none; padding: 0; margin: 16px 0 0; text-align: left; }
+  .plist li { padding: 9px 12px; background: rgba(255,255,255,.07); border-radius: 10px; margin-top: 6px; display: flex; gap: 8px; }
+  .plist li.free { color: var(--muted); background: none; border: 1px dashed var(--line); }
+  .plist .grow { flex: 1; }
+  .banner { position: fixed; top: 0; left: 0; right: 0; background: var(--red); text-align: center; padding: 6px; font-size: 13px; z-index: 20; }
+</style>
+</head>
+<body>
+
+<div id="home">
+  <div class="box">
+    <div class="logo">♠ <span>♥</span> ♣ <span>♦</span></div>
+    <h1>BLACKJACK</h1>
+    <p class="sub">Bis zu 4 Spieler an einem Tisch</p>
+    <label for="nameInput">Dein Name</label>
+    <input id="nameInput" maxlength="14" autocomplete="off" placeholder="z. B. Alex">
+    <div id="joinDirect" class="hidden">
+      <button class="primary" id="joinDirectBtn"></button>
+    </div>
+    <div id="homeChoices">
+      <button class="primary" id="createBtn">Neuen Tisch erstellen</button>
+      <p class="or">oder einem Tisch beitreten</p>
+      <label for="codeInput">Tisch-Code</label>
+      <input id="codeInput" maxlength="4" autocomplete="off" placeholder="ABCD">
+      <button class="ghost" id="joinBtn">Beitreten</button>
+    </div>
+    <div class="err" id="homeErr"></div>
+  </div>
+</div>
+
+<div id="table" class="hidden">
+  <div class="top">
+    <span class="code" id="topCode"></span>
+    <span class="grow"></span>
+    <button id="qrBtn">QR-Code</button>
+    <button id="leaveBtn">Verlassen</button>
+  </div>
+  <div class="felt" id="felt">
+    <button class="emoBtn" id="emoBtn" aria-label="Emote senden">😀</button>
+    <div class="tray hidden" id="tray"></div>
+    <svg class="prop gun" viewBox="0 0 200 120" aria-hidden="true">
+      <defs>
+        <linearGradient id="steel" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#b4bcc6"/><stop offset=".5" stop-color="#6d7681"/><stop offset="1" stop-color="#3a4049"/></linearGradient>
+        <linearGradient id="wood" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#8a5226"/><stop offset="1" stop-color="#3a1f0d"/></linearGradient>
+      </defs>
+      <path d="M14 30 l5 -7 l3 7z" fill="#3a4049"/>
+      <rect x="10" y="30" width="84" height="14" rx="2" fill="url(#steel)" stroke="#23272d"/>
+      <rect x="10" y="33" width="84" height="2" fill="#fff" opacity=".35"/>
+      <rect x="34" y="44" width="56" height="6" rx="2" fill="#4a525c" stroke="#23272d"/>
+      <path d="M88 25 H152 Q162 26 163 37 V63 H88 Z" fill="url(#steel)" stroke="#23272d"/>
+      <rect x="96" y="28" width="46" height="32" rx="6" fill="#4a525c" stroke="#1c2025"/>
+      <rect x="100" y="33" width="38" height="5" rx="2.5" fill="#2a2f36"/>
+      <rect x="100" y="42" width="38" height="5" rx="2.5" fill="#2a2f36"/>
+      <rect x="100" y="51" width="38" height="5" rx="2.5" fill="#2a2f36"/>
+      <path d="M155 26 L168 11 L175 15 L166 31 Z" fill="#59616b" stroke="#23272d"/>
+      <path d="M100 63 Q103 88 124 86 Q139 84 139 63" fill="none" stroke="#59616b" stroke-width="4.5"/>
+      <path d="M121 63 Q118 73 125 78" fill="none" stroke="#2a2f36" stroke-width="3.5" stroke-linecap="round"/>
+      <path d="M140 60 L165 38 Q177 42 179 56 L193 100 Q195 113 182 113 L161 113 Q152 112 150 102 Z" fill="url(#wood)" stroke="#1f1007" stroke-width="1.5"/>
+      <circle cx="168" cy="78" r="3.5" fill="#c9a24a" stroke="#1f1007"/>
+    </svg>
+    <svg class="prop cash" viewBox="0 0 150 100" aria-hidden="true">
+      <defs>
+        <g id="note">
+          <rect width="104" height="50" rx="3" fill="#6aa56f" stroke="#2c5a34" stroke-width="1.5"/>
+          <rect x="4" y="4" width="96" height="42" rx="2" fill="none" stroke="#d6ecd0" stroke-width="1" opacity=".8"/>
+          <ellipse cx="52" cy="25" rx="13" ry="16" fill="#3f7a49" stroke="#d6ecd0" stroke-width="1"/>
+          <text x="52" y="31" text-anchor="middle" font="700 16px Georgia" font-family="Georgia,serif" font-weight="700" font-size="16" fill="#e6f4e0">$</text>
+          <text x="9" y="16" font-family="Georgia,serif" font-weight="700" font-size="10" fill="#1f4a28">100</text>
+          <text x="95" y="42" text-anchor="end" font-family="Georgia,serif" font-weight="700" font-size="10" fill="#1f4a28">100</text>
+        </g>
+      </defs>
+      <use href="#note" transform="translate(30 6) rotate(16)"/>
+      <use href="#note" transform="translate(12 34) rotate(-12)"/>
+      <use href="#note" transform="translate(34 30) rotate(4)"/>
+    </svg>
+    <svg class="prop glass" viewBox="0 0 60 72" aria-hidden="true">
+      <defs><linearGradient id="whisky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f0b24a"/><stop offset="1" stop-color="#a4530f"/></linearGradient></defs>
+      <ellipse cx="30" cy="68" rx="20" ry="3" fill="#000" opacity=".35"/>
+      <path d="M10.5 32 H49.5 L47 61 Q46.5 65 43 65 H17 Q13.500 65 13 61 Z" fill="url(#whisky)"/>
+      <rect x="18" y="24" width="13" height="13" rx="2" transform="rotate(-14 24 30)" fill="#fff" opacity=".55" stroke="#fff" stroke-width=".8"/>
+      <rect x="30" y="27" width="12" height="12" rx="2" transform="rotate(18 36 33)" fill="#fff" opacity=".45" stroke="#fff" stroke-width=".8"/>
+      <path d="M8 5 H52 L47.500 64 Q47 69 42 69 H18 Q13 69 12.500 64 Z" fill="rgba(255,255,255,.1)" stroke="rgba(255,255,255,.75)" stroke-width="1.6"/>
+      <path d="M13 10 L16.500 58" stroke="#fff" stroke-width="2.2" opacity=".5" stroke-linecap="round"/>
+    </svg>
+    <svg class="arcText" viewBox="0 0 400 80" aria-hidden="true">
+      <path id="arcPath" d="M 20 8 Q 200 100 380 8" fill="none"/>
+      <text><textPath href="#arcPath" startOffset="50%" text-anchor="middle">BLACKJACK ZAHLT 3 ZU 2</textPath></text>
+    </svg>
+    <div class="dealer">
+      <div class="tag">Dealer</div>
+      <div id="dealerHand"></div>
+    </div>
+    <div class="status" id="status"></div>
+    <div class="seats" id="seats"></div>
+  </div>
+  <div class="controls" id="controls"></div>
+</div>
+
+<div class="overlay hidden" id="overlay">
+  <div class="box">
+    <div class="tag" id="ovTitle">Lobby</div>
+    <div class="bigcode" id="ovCode"></div>
+    <img class="qr" id="ovQr" alt="QR-Code zum Beitreten">
+    <p class="sub" style="margin:10px 0 4px">QR-Code mit dem Handy scannen, um beizutreten</p>
+    <div class="url" id="ovUrl"></div>
+    <ul class="plist" id="ovPlayers"></ul>
+    <div id="ovActions"></div>
+  </div>
+</div>
+
+<div class="banner hidden" id="banner">Verbindung unterbrochen – verbinde neu …</div>
+
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const qs = new URLSearchParams(location.search);
+  const store = {
+    get(k) { try { return localStorage.getItem(k); } catch { return null; } },
+    set(k, v) { try { localStorage.setItem(k, v); } catch {} },
+  };
+  const rand = () => Array.from(crypto.getRandomValues(new Uint8Array(12)), b => b.toString(16).padStart(2, '0')).join('');
+  let pid = store.get('bjPid');
+  if (!pid) { pid = rand(); store.set('bjPid', pid); }
+  pid += qs.get('t') || '';
+
+  let room = null, me = null, joinUrl = '', state = null, es = null;
+  let pending = 0, lastBet = 0, qrOpen = false, deadline = 0, span = 1;
+  let seen = new Set(), seenRound = -1, wasMyTurn = false, emoteAt = 0;
+
+  const SUIT = { S: '♠', H: '♥', D: '♦', C: '♣' };
+  const FACE = { K: '♚', Q: '♛', J: '♞' };
+  const RESULT = { win: 'Gewonnen', lose: 'Verloren', push: 'Gleichstand', blackjack: 'Blackjack!', bust: 'Überkauft' };
+  const COLORS = ['#e5484d', '#3b82f6', '#e08a1e', '#a855f7'];
+  // Reihenfolge = Kennnummer auf dem Server (EMOTE_COUNT in server.py)
+  const EMOTES = ['👍', '😂', '😭', '😡', '🤯', '😎', '🍀', '🔥', '👑', '💸', '🙏', '🥱',
+                  'Gut gespielt!', 'Viel Glück!', 'Danke!', 'Ups …', 'Wow!', 'Karte, bitte!'];
+  const EMOTE_ANIM = ['pop', 'wobble', 'sway', 'shake', 'pop', 'sway', 'wobble', 'pulse', 'pop', 'wobble', 'sway', 'sway'];
+  const FACES = 12;
+
+  const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const val = c => c.r === 'A' ? 11 : ['K', 'Q', 'J', '10'].includes(c.r) ? 10 : +c.r;
+  function total(cards) {
+    let t = 0, a = 0;
+    for (const c of cards) { if (c.hidden) continue; t += val(c); if (c.r === 'A') a++; }
+    while (t > 21 && a) { t -= 10; a--; }
+    return t;
+  }
+
+  async function post(path, body) {
+    let r;
+    try {
+      r = await fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pid, room, ...body }) });
+    } catch {
+      throw new Error(location.protocol === 'file:'
+        ? 'Bitte nicht die Datei direkt öffnen: start.bat starten und http://localhost:8765 aufrufen.'
+        : 'Der Spielserver ist nicht erreichbar. Bitte start.bat starten (Fenster offen lassen) und die Seite neu laden.');
+    }
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(j.error || 'Fehler');
+    return j;
+  }
+  const act = (type, extra) => post('/api/action', { type, ...extra }).catch(() => {});
+
+  // ---------- Startseite ----------
+  const urlRoom = (qs.get('room') || '').toUpperCase().slice(0, 4);
+  $('nameInput').value = store.get('bjName') || '';
+  if (location.protocol === 'file:')
+    $('homeErr').textContent = 'Bitte nicht die Datei direkt öffnen: start.bat starten und http://localhost:8765 aufrufen.';
+  if (urlRoom) {
+    $('joinDirect').classList.remove('hidden');
+    $('homeChoices').classList.add('hidden');
+    $('joinDirectBtn').textContent = 'Tisch ' + urlRoom + ' beitreten';
+  }
+
+  function getName() {
+    const n = $('nameInput').value.trim();
+    if (!n) { $('homeErr').textContent = 'Bitte gib einen Namen ein.'; $('nameInput').focus(); return null; }
+    store.set('bjName', n);
+    return n;
+  }
+
+  async function enter(path, body) {
+    $('homeErr').textContent = '';
+    try {
+      const j = await post(path, body);
+      room = j.room; me = j.me; joinUrl = j.url;
+      const u = new URL(location.href);
+      u.searchParams.set('room', room);
+      history.replaceState(null, '', u);
+      $('home').classList.add('hidden');
+      $('table').classList.remove('hidden');
+      $('topCode').textContent = room;
+      $('ovCode').textContent = room;
+      $('ovQr').src = '/qr.svg?room=' + room;
+      $('ovUrl').textContent = joinUrl;
+      connect();
+      return true;
+    } catch (e) {
+      $('homeErr').textContent = e.message;
+      return false;
+    }
+  }
+
+  $('createBtn').onclick = () => { const name = getName(); if (name) { room = null; enter('/api/create', { name }); } };
+  $('joinBtn').onclick = () => {
+    const name = getName(); if (!name) return;
+    const code = $('codeInput').value.trim().toUpperCase();
+    if (code.length !== 4) { $('homeErr').textContent = 'Der Code hat 4 Buchstaben.'; return; }
+    enter('/api/join', { name, room: code });
+  };
+  $('joinDirectBtn').onclick = async () => {
+    const name = getName(); if (!name) return;
+    if (!await enter('/api/join', { name, room: urlRoom })) {
+      $('joinDirect').classList.add('hidden');
+      $('homeChoices').classList.remove('hidden');
+    }
+  };
+  $('nameInput').addEventListener('keydown', e => {
+    if (e.key === 'Enter') (urlRoom && !$('joinDirect').classList.contains('hidden') ? $('joinDirectBtn') : $('createBtn')).click();
+  });
+
+  function goHome(msg) {
+    if (es) { es.close(); es = null; }
+    state = null; room = null;
+    history.replaceState(null, '', location.pathname);
+    $('table').classList.add('hidden');
+    $('overlay').classList.add('hidden');
+    $('banner').classList.add('hidden');
+    $('joinDirect').classList.add('hidden');
+    $('homeChoices').classList.remove('hidden');
+    $('home').classList.remove('hidden');
+    $('homeErr').textContent = msg || '';
+  }
+
+  // ---------- Verbindung ----------
+  function connect() {
+    if (es) es.close();
+    es = new EventSource('/events?room=' + room + '&pid=' + encodeURIComponent(pid));
+    es.onopen = () => $('banner').classList.add('hidden');
+    es.onmessage = e => {
+      $('banner').classList.add('hidden');
+      const m = JSON.parse(e.data);
+      if (m.emote) { showEmote(m.emote.id, m.emote.e); return; }
+      state = m; onState();
+    };
+    es.onerror = async () => {
+      if (!room) return;
+      $('banner').classList.remove('hidden');
+      if (es.readyState === EventSource.CLOSED) {
+        // Server kennt uns nicht mehr (oder Stream wurde beendet): neu beitreten
+        const code = room;
+        await new Promise(r => setTimeout(r, 1200));
+        if (room !== code) return;
+        try {
+          await post('/api/join', { name: store.get('bjName') || 'Spieler', room: code });
+          connect();
+        } catch (err) {
+          if (/gibt es nicht|voll/.test(err.message)) goHome(err.message);
+          else setTimeout(() => { if (room === code) es.onerror(); }, 2000);
+        }
+      }
+    };
+  }
+
+  $('leaveBtn').onclick = async () => {
+    if (!confirm('Tisch wirklich verlassen?')) return;
+    if (es) { es.close(); es = null; }
+    await act('leave');
+    goHome('');
+  };
+  $('qrBtn').onclick = () => { qrOpen = true; render(); };
+
+  // ---------- Emotes ----------
+  $('tray').innerHTML =
+    '<div class="grid">' + EMOTES.slice(0, FACES).map((e, i) => `<button data-e="${i}">${e}</button>`).join('') + '</div>' +
+    '<div class="words">' + EMOTES.slice(FACES).map((e, i) => `<button data-e="${i + FACES}">${e}</button>`).join('') + '</div>';
+  $('emoBtn').onclick = e => { e.stopPropagation(); $('tray').classList.toggle('hidden'); };
+  $('tray').onclick = e => {
+    e.stopPropagation();
+    const b = e.target.closest('button');
+    if (!b) return;
+    $('tray').classList.add('hidden');
+    if (Date.now() - emoteAt < 900) return;
+    emoteAt = Date.now();
+    act('emote', { e: +b.dataset.e });
+  };
+  document.addEventListener('click', () => $('tray').classList.add('hidden'));
+
+  function showEmote(id, e) {
+    if (!state || !(e in EMOTES)) return;
+    const idx = state.players.findIndex(p => p.id === id);
+    const seat = document.querySelector(`[data-seat="${idx}"]`);
+    if (!seat) return;
+    document.querySelectorAll(`.bubble[data-from="${idx}"]`).forEach(b => b.remove());
+    const r = seat.getBoundingClientRect();
+    const b = document.createElement('div');
+    b.className = 'bubble' + (e >= FACES ? ' txt' : '');
+    b.dataset.from = idx;
+    b.innerHTML = `<div><span class="a-${EMOTE_ANIM[e] || 'pop'}">${esc(EMOTES[e])}</span></div>`;
+    document.body.appendChild(b);
+    const half = b.offsetWidth / 2 + 6;
+    b.style.left = Math.max(half, Math.min(innerWidth - half, r.left + r.width / 2)) + 'px';
+    b.style.top = Math.max(70, r.top + 26) + 'px';
+    setTimeout(() => b.remove(), 2800);
+  }
+
+  // ---------- Darstellung ----------
+  function onState() {
+    if (state.round !== seenRound) {
+      seen = new Set(); seenRound = state.round;
+      const mine = state.players.find(p => p.id === me);
+      if (state.phase === 'betting' && mine) pending = Math.min(lastBet || 10, mine.chips);
+    }
+    deadline = state.ms ? performance.now() + state.ms : 0;
+    span = state.phase === 'results' ? 7000 : 40000;
+    const myTurn = state.phase === 'playing' && state.turn && state.turn.id === me;
+    if (myTurn && !wasMyTurn && navigator.vibrate) navigator.vibrate(120);
+    wasMyTurn = myTurn;
+    render();
+  }
+
+  function cardHtml(c, key, shift) {
+    const fresh = !seen.has(key);
+    seen.add(key);
+    const cls = fresh ? ' new' : '';
+    const st = shift ? ` style="margin-left:${shift}px"` : '';
+    if (c.hidden) return `<div class="card back${cls}"${st}></div>`;
+    const red = c.s === 'H' || c.s === 'D' ? ' red' : '';
+    const idx = `${c.r}<i>${SUIT[c.s]}</i>`;
+    const kind = FACE[c.r] ? ' face' : (c.r === 'A' ? ' ace' : '');
+    return `<div class="card${red}${kind}${cls}"${st}><b>${idx}</b><em>${FACE[c.r] || SUIT[c.s]}</em><u>${idx}</u></div>`;
+  }
+  // cw = Kartenbreite, maxW = verfügbare Breite, step = sichtbarer Streifen je Karte
+  function handHtml(cards, key, cw, maxW, step) {
+    const n = cards.length;
+    if (n > 1) step = Math.max(12, Math.min(step, (maxW - cw) / (n - 1)));
+    return `<div class="hand${cw >= 72 ? ' lg' : ''}" style="--cw:${cw}px">` +
+      cards.map((c, i) => cardHtml(c, key + i + (c.hidden ? 'h' : ''), i ? -Math.round(cw - step) : 0)).join('') + '</div>';
+  }
+  function sumHtml(cards, h) {
+    if (!cards.length) return '';
+    const t = total(cards);
+    const cls = t > 21 ? ' bust' : (t === 21 ? ' top' : '');
+    return `<span class="sum${cls}">${t}</span>`;
+  }
+
+  function render() {
+    if (!state) return;
+    const s = state, my = s.players.find(p => p.id === me), isHost = s.host === me;
+    const turnP = s.turn && s.players.find(p => p.id === s.turn.id);
+    const wide = innerWidth >= 760;
+
+    $('felt').classList.toggle('compact', s.phase === 'betting' || s.phase === 'lobby');
+    const dcw = wide ? 78 : 68;
+    $('dealerHand').innerHTML = handHtml(s.dealer, 'd', dcw, Math.min(innerWidth - 200, 440), dcw * .74) + sumHtml(s.dealer);
+
+    let st = '';
+    if (s.phase === 'betting') st = 'Einsätze platzieren';
+    else if (s.phase === 'playing' && turnP) st = turnP.id === me ? 'Du bist dran!' : esc(turnP.name) + ' ist dran';
+    else if (s.phase === 'dealer') st = 'Dealer zieht …';
+    else if (s.phase === 'results') {
+      const dt = total(s.dealer);
+      st = dt > 21 ? 'Dealer überkauft!' : (dt === 21 && s.dealer.length === 2 ? 'Dealer hat Blackjack' : 'Dealer hat ' + dt);
+    }
+    $('status').innerHTML = st;
+
+    // Sitze im Halbkreis
+    const seatW = wide ? ($('seats').clientWidth - 60) / 4 : ($('seats').clientWidth - 12) * .3;
+    const cw = wide ? 66 : (innerHeight >= 780 ? 56 : innerHeight >= 690 ? 50 : 44);
+    let html = '';
+    for (let i = 0; i < 4; i++) {
+      const p = s.players[i];
+      if (!p) {
+        html += `<div class="seat s${i} empty" data-seat="${i}"><div class="hands"></div><div class="betline"></div>
+          <div class="plate"><div class="avatar">+</div><div class="name">Frei</div><div class="chips">&nbsp;</div></div></div>`;
+        continue;
+      }
+      const active = !!(s.turn && s.turn.id === p.id);
+      const cls = ['seat', 's' + i, p.id === me ? 'me' : '', active ? 'active' : '', (!p.online || p.left) ? 'off' : ''].join(' ');
+      const rows = p.hands.map((h, hi) => {
+        const cur = active && s.turn.hand === hi;
+        const dim = s.phase === 'playing' && h.done && !cur && !h.bj;
+        const res = h.result ? `<span class="res ${h.result}">${RESULT[h.result]}</span>`
+                  : (h.bj ? '<span class="res blackjack">Blackjack!</span>' : sumHtml(h.cards));
+        return `<div class="hrow${cur && p.hands.length > 1 ? ' cur' : ''}${dim ? ' dim' : ''}">${handHtml(h.cards, p.id + hi + '-', cw, seatW - 16, cw * .7)}${res}</div>`;
+      }).join('');
+      const betSum = p.hands.length ? p.hands.reduce((a, h) => a + h.bet, 0) : p.bet;
+      let bet = '';
+      if (s.phase === 'results' && p.net !== null && p.hands.length)
+        bet = `<div class="betline net ${p.net > 0 ? 'pos' : p.net < 0 ? 'neg' : ''}">${p.net > 0 ? '+' : ''}${p.net}</div>`;
+      else if (betSum) bet =`<div class="betline"><span class="mini"></span>${betSum}${s.phase === 'betting' ? ' ✔' : ''}</div>`;
+      else if (s.phase === 'betting') bet = '<div class="betline wait">setzt …</div>';
+      else if (s.phase !== 'lobby') bet = '<div class="betline wait">setzt aus</div>';
+      else bet = '<div class="betline"></div>';
+      const net = '';
+      html += `<div class="${cls}" data-seat="${i}">
+        <div class="hands">${rows}</div>${bet}
+        <div class="plate">${net}<div class="avatar" style="--c:${COLORS[i]}">${esc(p.name.slice(0, 1).toUpperCase())}</div>
+          <div class="name">${esc(p.name)}${!p.online ? ' ⚠' : ''}</div>
+          <div class="chips">${p.chips}</div></div></div>`;
+    }
+    $('seats').innerHTML = html;
+
+    renderControls(s, my, isHost, turnP);
+    renderOverlay(s, isHost);
+  }
+
+  function mineHtml(s, my) {
+    if (!my.hands.length) return '';
+    const maxW = Math.min(innerWidth - 40, 420) / my.hands.length - 60;
+    return '<div class="mine">' + my.hands.map((h, hi) => {
+      const cur = s.turn && s.turn.id === me && s.turn.hand === hi && my.hands.length > 1;
+      return `<div class="mh${cur ? ' cur' : ''}">${handHtml(h.cards, 'm' + hi + '-', 60, maxW, 44)}${sumHtml(h.cards)}</div>`;
+    }).join('') + '</div>';
+  }
+
+  function renderControls(s, my, isHost, turnP) {
+    const el = $('controls');
+    if (!my) { el.innerHTML = ''; return; }
+    const bar = '<div class="bar"><i id="barFill"></i></div>';
+    if (s.phase === 'lobby') {
+      el.innerHTML = '<div class="info">Warte auf den Spielstart …</div>';
+    } else if (s.phase === 'betting') {
+      if (my.bet) {
+        const waiting = s.players.some(p => p.online && !p.bet);
+        el.innerHTML = `<div class="pend">Dein Einsatz: <b>${my.bet}</b></div><div class="row">
+          <button class="act" data-a="unbet">Ändern</button>
+          ${isHost && waiting ? '<button class="act go" data-a="deal">Jetzt austeilen</button>' : ''}</div>
+          ${waiting ? '' : '<div class="info">Karten werden ausgeteilt …</div>'}`;
+      } else {
+        if (pending > my.chips) pending = my.chips;
+        // Nicht neu aufbauen, solange das Eingabefeld da ist (sonst verliert es beim Tippen den Fokus)
+        if (!$('betInput')) {
+          const chips = [10, 25, 50, 100, 500].map(v => `<button class="chip c${v}" data-chip="${v}">+${v}</button>`).join('');
+          el.innerHTML = `<div class="betrow">
+              <button class="step" data-step="-1" aria-label="Einsatz verringern">−</button>
+              <input id="betInput" type="number" inputmode="numeric" min="1" aria-label="Einsatz">
+              <button class="step" data-step="1" aria-label="Einsatz erhöhen">+</button></div>
+            <div class="row" style="margin-bottom:10px">${chips}</div>
+            <div class="row"><button class="act" data-clear="1">Löschen</button>
+            <button class="act go" data-place="1">Setzen</button></div>`;
+        }
+        syncBet(my, true);
+      }
+    } else if (s.phase === 'playing' && turnP && turnP.id === me) {
+      const h = my.hands[s.turn.hand], two = h.cards.length === 2;
+      const canDouble = two && my.chips >= h.bet;
+      const canSplit = two && my.hands.length === 1 && my.chips >= h.bet && val(h.cards[0]) === val(h.cards[1]);
+      el.innerHTML = `<div class="row">
+        <button class="act go" data-a="hit">Ziehen</button>
+        <button class="act stop" data-a="stand">Halten</button>
+        <button class="act" data-a="double" ${canDouble ? '' : 'disabled'}>Verdoppeln</button>
+        ${canSplit ? '<button class="act" data-a="split">Teilen</button>' : ''}</div>`;
+    } else if (s.phase === 'results') {
+      const txt = my.net === null ? 'Nächste Runde startet gleich …'
+        : my.net > 0 ? `Du gewinnst <b style="color:var(--good)">+${my.net}</b>`
+        : my.net < 0 ? `Du verlierst <b style="color:var(--bad)">${my.net}</b>` : 'Gleichstand – Einsatz zurück';
+      el.innerHTML = `<div class="pend" style="padding:12px 0">${txt}</div>`;
+    } else {
+      el.innerHTML = `<div class="info">${my.hands.length ? 'Bitte warten …' : 'Du bist in der nächsten Runde dabei.'}</div>`;
+    }
+  }
+
+  // Einsatz-Eingabe mit dem aktuellen Wert abgleichen
+  function syncBet(my, writeInput) {
+    const inp = $('betInput');
+    if (!inp) return;
+    inp.max = my.chips;
+    if (writeInput || document.activeElement !== inp) inp.value = pending || '';
+    const c = $('controls');
+    c.querySelectorAll('[data-chip]').forEach(b => b.disabled = pending >= my.chips);
+    c.querySelector('[data-step="-1"]').disabled = pending <= 0;
+    c.querySelector('[data-step="1"]').disabled = pending >= my.chips;
+    c.querySelector('[data-clear]').disabled = !pending;
+    c.querySelector('[data-place]').disabled = pending < 1;
+  }
+  $('controls').addEventListener('input', e => {
+    if (e.target.id !== 'betInput' || !state) return;
+    const my = state.players.find(p => p.id === me);
+    pending = Math.max(0, Math.min(my.chips, parseInt(e.target.value, 10) || 0));
+    syncBet(my, false);
+  });
+  $('controls').addEventListener('change', e => {
+    if (e.target.id === 'betInput' && state) syncBet(state.players.find(p => p.id === me), true);
+  });
+  $('controls').addEventListener('keydown', e => {
+    if (e.target.id === 'betInput' && e.key === 'Enter') { e.target.blur(); const b = $('controls').querySelector('[data-place]'); if (b) b.click(); }
+  });
+  // +/- gedrückt halten zählt schnell weiter
+  let holdTimer = null;
+  const stopHold = () => { clearTimeout(holdTimer); clearInterval(holdTimer); holdTimer = null; };
+  $('controls').addEventListener('pointerdown', e => {
+    const b = e.target.closest('[data-step]');
+    if (!b || !state) return;
+    const d = +b.dataset.step;
+    stopHold();
+    holdTimer = setTimeout(() => {
+      holdTimer = setInterval(() => {
+        const my = state && state.players.find(p => p.id === me);
+        if (!my || !$('betInput')) return stopHold();
+        pending = Math.max(0, Math.min(my.chips, pending + d * 5));
+        syncBet(my, true);
+      }, 70);
+    }, 400);
+  });
+  ['pointerup', 'pointerleave', 'pointercancel'].forEach(t => $('controls').addEventListener(t, stopHold));
+
+  $('controls').addEventListener('click', e => {
+    const b = e.target.closest('button');
+    if (!b || b.disabled || !state) return;
+    const my = state.players.find(p => p.id === me);
+    if (b.dataset.chip) { pending = Math.min(pending + +b.dataset.chip, my.chips); syncBet(my, true); }
+    else if (b.dataset.step) { pending = Math.max(0, Math.min(my.chips, pending + +b.dataset.step)); syncBet(my, true); }
+    else if (b.dataset.clear) { pending = 0; syncBet(my, true); }
+    else if (b.dataset.place) { lastBet = pending; act('bet', { amount: pending }); }
+    else if (b.dataset.a) {
+      if (b.dataset.a === 'unbet') pending = my.bet;
+      $('controls').querySelectorAll('button').forEach(x => x.disabled = true);
+      act(b.dataset.a);
+    }
+  });
+
+  function renderOverlay(s, isHost) {
+    const lobby = s.phase === 'lobby';
+    const show = lobby || qrOpen;
+    $('overlay').classList.toggle('hidden', !show);
+    if (!show) return;
+    $('ovTitle').textContent = lobby ? 'Lobby · Tisch-Code' : 'Mitspieler einladen';
+    let li = '';
+    for (let i = 0; i < 4; i++) {
+      const p = s.players[i];
+      li += p ? `<li><span class="grow">${esc(p.name)}${p.id === me ? ' (du)' : ''}</span><span>${p.id === s.host ? '★ Host' : ''}</span></li>`
+              : '<li class="free">Freier Platz</li>';
+    }
+    $('ovPlayers').innerHTML = li;
+    $('ovActions').innerHTML = lobby
+      ? (isHost ? '<button class="primary" id="startBtn">Spiel starten</button>'
+                : '<p class="sub" style="margin:16px 0 0">Der Host startet das Spiel …</p>')
+      : '<button class="ghost" id="closeQr">Schließen</button>';
+    if ($('startBtn')) $('startBtn').onclick = () => act('start');
+    if ($('closeQr')) $('closeQr').onclick = () => { qrOpen = false; render(); };
+  }
+
+  addEventListener('resize', render);
+})();
+</script>
+</body>
+</html>
